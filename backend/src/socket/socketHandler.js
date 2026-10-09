@@ -66,6 +66,18 @@ const socketHandler = (io) => {
       console.log(
         `User connected: ${socket.user.name} (${socket.id})`
       );
+             
+       // --------------------------------
+    // Join personal user room
+    // --------------------------------
+
+    const userRoom = `user:${socket.user._id}`;
+
+    socket.join(userRoom);
+
+    console.log(
+      `${socket.user.name} joined personal room: ${userRoom}`
+    );
 
       await User.findByIdAndUpdate(
         socket.user._id,
@@ -498,14 +510,24 @@ socket.on(
             // Populate message
             // --------------------------------
 
-            const populatedMessage =
-              await Message.findById(
-                message._id
-              ).populate(
-                "sender",
-                "-password"
-              );
+            // const populatedMessage =
+            //   await Message.findById(
+            //     message._id
+            //   ).populate(
+            //     "sender",
+            //     "-password"
+            //   );
 
+            const populatedMessage =
+  await Message.findById(message._id)
+    .populate("sender", "-password")
+    .populate({
+      path: "conversation",
+      populate: {
+        path: "participants",
+        select: "-password",
+      },
+    });
             const room =
               `conversation:${conversationId}`;
 
@@ -525,10 +547,38 @@ socket.on(
             // Send to sender + receiver
             // --------------------------------
 
-            io.to(room).emit(
-              "message:receive",
-              populatedMessage
-            );
+            // io.to(room).emit(
+            //   "message:receive",
+            //   populatedMessage
+            // );
+
+            // --------------------------------
+// Send message to conversation room
+// --------------------------------
+
+io.to(room).emit(
+  "message:receive",
+  populatedMessage
+);
+
+// --------------------------------
+// Notify participants directly
+// --------------------------------
+
+conversation.participants.forEach((participantId) => {
+  const participantRoom =
+    `user:${participantId.toString()}`;
+
+  io.to(participantRoom).emit(
+    "conversation:message",
+    populatedMessage
+  );
+
+  console.log(
+    "Message notification emitted to:",
+    participantRoom
+  );
+});
 
             console.log(
               "message:receive emitted:",

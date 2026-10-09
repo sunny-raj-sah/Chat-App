@@ -1,4 +1,4 @@
-# 💬 ChatApp — Real-Time Chat Application
+# 💬 Real-Time Chat Application
 
 <<<<<<< HEAD
 A full-stack one-to-one real-time messaging application built with **React, Node.js, Express.js, MongoDB, and Socket.IO**.
@@ -19,19 +19,15 @@ The application allows authenticated users to search for other users, create one
 
 **Backend:** https://chatapp-real-time-chat-application-f1bf.onrender.com/
 
-## ✨ Features
-=======
-**Live Demo:**
-https://chat-app-real-time-chat-application-woad.vercel.app/login
-
-**Backend API:**
-https://chatapp-real-time-chat-application-f1bf.onrender.com/
-
 **GitHub Repository:**
 https://github.com/sunny-raj-sah/ChatApp-Real-Time-Chat-Application
 
 **Portfolio:**
 https://portfolio-eight-vert-40.vercel.app/#projects
+
+## ✨ Features
+=======
+ 
 >>>>>>> 2a54fb5 (update feature)
 
 - 🔐 User registration and JWT-based login
