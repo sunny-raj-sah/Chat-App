@@ -1,20 +1,20 @@
 # 💬 Real-Time Chat Application
 
-<<<<<<< HEAD
+ 
 A full-stack one-to-one real-time messaging application built with **React, Node.js, Express.js, MongoDB, and Socket.IO**.
 
 ChatApp supports JWT authentication, user search, conversations, real-time messaging, online/offline presence, typing indicators, message status fields, paginated message history, and ownership-controlled message deletion.
-=======
+ 
 ChatApp is a full-stack real-time messaging application built with **React, Node.js, Express.js, MongoDB, and Socket.IO**.
 
 The application allows authenticated users to search for other users, create one-to-one conversations, exchange messages in real time, see online/offline presence, receive typing indicators, track message status, and delete their own messages.
 
 ---
->>>>>>> 2a54fb5 (update feature)
+ 
 
 ## 🚀 Live Application
 
-<<<<<<< HEAD
+ 
 **Frontend:** https://chat-app-real-time-chat-application-woad.vercel.app/login
 
 **Backend:** https://chatapp-real-time-chat-application-f1bf.onrender.com/
@@ -26,9 +26,9 @@ https://github.com/sunny-raj-sah/ChatApp-Real-Time-Chat-Application
 https://portfolio-eight-vert-40.vercel.app/#projects
 
 ## ✨ Features
-=======
  
->>>>>>> 2a54fb5 (update feature)
+ 
+ 
 
 - 🔐 User registration and JWT-based login
 - 🔎 Search users by name or email
@@ -43,9 +43,9 @@ https://portfolio-eight-vert-40.vercel.app/#projects
 - 📱 Responsive chat interface
 - 😀 Emoji picker support
 
-<<<<<<< HEAD
+ 
 ## 🛠️ Tech Stack
-=======
+ 
 # 📌 Project Overview
 
 Traditional REST-based applications generally require the client to make repeated requests to check whether new data is available.
@@ -85,7 +85,7 @@ The result is a full-stack application where persistent data and real-time event
 | Configuration | dotenv |
 | Deployment | Vercel, Render |
 
-<<<<<<< HEAD
+ 
 ## 🏗️ Architecture
 
 ```text
@@ -105,7 +105,7 @@ The result is a full-stack application where persistent data and real-time event
              +-----------+-----------+
              |           |           |
            Users   Conversations  Messages
-=======
+ 
 * User registration
 * User login
 * JWT-based authentication
@@ -1265,12 +1265,12 @@ ChatApp-Real-Time-Chat-Application/
 │   └── case-study-real-time-chat.md
 │
 └── README.md
->>>>>>> 2a54fb5 (update feature)
+ 
 ```
 
 The application intentionally combines REST and Socket.IO:
 
-<<<<<<< HEAD
+ 
 - **REST** handles authentication, user search, conversation retrieval, and message-history pagination.
 - **Socket.IO** handles message delivery, typing, presence, conversation rooms, and message deletion.
 
@@ -1312,7 +1312,7 @@ conversation:<conversationId>
 ```
 
 Conversation-specific rooms keep real-time events scoped to the relevant participants.
-=======
+ 
 # ⚙️ Local Development Setup
 
 ## 1. Clone Repository
@@ -1509,11 +1509,11 @@ Socket Events
 ```
 
 without introducing an additional state-management library.
->>>>>>> 2a54fb5 (update feature)
+ 
 
 ## ✍️ Typing & Presence
 
-<<<<<<< HEAD
+ 
 Typing is handled through transient Socket.IO events:
 
 ```text
@@ -1529,7 +1529,7 @@ user:offline -> isOnline = false + lastSeen
 ```
 
 The React chat context updates users and conversation participants when these events arrive.
-=======
+ 
 ## Why REST + Socket.IO?
 
 REST is appropriate for:
@@ -1563,11 +1563,11 @@ conversation:<conversationId>
 ```
 
 Only participants who have successfully joined that conversation room receive its real-time conversation events.
->>>>>>> 2a54fb5 (update feature)
+ 
 
 ## 🗑️ Message Deletion
 
-<<<<<<< HEAD
+ 
 Only the sender can delete a message.
 
 The backend:
@@ -1706,7 +1706,7 @@ Open:
 ```text
 http://localhost:3000
 ```
-=======
+ 
 ## Why Server-Side Authorization?
 
 The frontend cannot be trusted to determine whether a user is allowed to access a conversation or delete a message.
@@ -1802,7 +1802,7 @@ Potential limitations include:
 * Socket.IO scaling is currently single-server
 * authentication can be further hardened for production
 * automated test coverage can be expanded
->>>>>>> 2a54fb5 (update feature)
+ 
 
 ## 🔌 REST API
 
@@ -1819,17 +1819,17 @@ Potential limitations include:
 | GET | `/api/messages/:conversationId` | Paginated message history |
 | POST | `/api/messages` | REST message endpoint |
 
-<<<<<<< HEAD
-The primary chat UI sends messages through Socket.IO.
-=======
+
+ HEADThe primary chat UI sends messages through Socket.IO.
+ 
 ## 👥 Group Chat
 
 Extend the conversation model to support multiple participants.
->>>>>>> 2a54fb5 (update feature)
+ 
 
 ## 🔌 Socket Events
 
-<<<<<<< HEAD
+ 
 | Event | Direction | Purpose |
 |---|---|---|
 | `conversation:join` | Client → Server | Join authorized room |
@@ -1841,7 +1841,7 @@ Extend the conversation model to support multiple participants.
 | `user:online` | Server → Client | Presence update |
 | `user:offline` | Server → Client | Presence update |
 | `message:error` | Server → Client | Socket error |
-=======
+ 
 ## 📎 File Sharing
 
 Add support for:
@@ -1921,7 +1921,7 @@ Introduce message virtualization and more advanced pagination/infinite scrolling
 
 ## 🔒 Security
 
-<<<<<<< HEAD
+ 
 - bcrypt password hashing
 - JWT verification
 - Protected REST routes
@@ -1931,7 +1931,7 @@ Introduce message virtualization and more advanced pagination/infinite scrolling
 - Password exclusion from populated user objects
 - Environment-based secrets
 - CORS configuration
-=======
+ 
 ```text
 React
 React Context API
@@ -2052,8 +2052,7 @@ https://github.com/sunny-raj-sah/ChatApp-Real-Time-Chat-Application
 ### Portfolio
 
 https://portfolio-eight-vert-40.vercel.app/#projects
->>>>>>> 2a54fb5 (update feature)
-
+ 
 > The current frontend persists JWTs in localStorage. For stronger production session security, HTTP-only secure cookies can be evaluated with an appropriate CSRF strategy.
 
 ## 🚀 Deployment
@@ -2096,10 +2095,10 @@ Detailed architecture and implementation documentation:
 
 B.Tech in Computer Science & Engineering
 
-<<<<<<< HEAD
+ 
 - GitHub: https://github.com/sunny-raj-sah
 - Portfolio: https://portfolio-eight-vert-40.vercel.app/
-=======
+ 
 ### GitHub
 
 https://github.com/sunny-raj-sah
@@ -2115,4 +2114,4 @@ https://portfolio-eight-vert-40.vercel.app/
 ---
 
  
->>>>>>> 2a54fb5 (update feature)
+ 
