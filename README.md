@@ -1,4 +1,4 @@
-# 💬 Real-Time Chat Application
+# 💬 Chat App
 
  
 A full-stack one-to-one real-time messaging application built with **React, Node.js, Express.js, MongoDB, and Socket.IO**.
