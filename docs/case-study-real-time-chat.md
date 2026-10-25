@@ -1,4 +1,4 @@
-# Real-Time Chat Application
+# Chat App
 
 ## Overview
 

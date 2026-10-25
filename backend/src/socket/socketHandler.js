@@ -1156,69 +1156,211 @@ const socketHandler = (io) => {
     // Send message
     // --------------------------------
 
-    socket.on("message:send", async ({ conversationId, text } = {}) => {
+ 
+
+
+socket.on(
+  "message:send",
+  async ({ conversationId, text } = {}, acknowledge) => {
+    const reply = (result) => {
+      if (typeof acknowledge === "function") {
+        acknowledge(result);
+      }
+    };
+
+    try {
+      if (!conversationId || typeof text !== "string" || !text.trim()) {
+        reply({
+          success: false,
+          message: "conversationId and text are required",
+        });
+        return;
+      }
+
+      const conversation = await Conversation.findById(conversationId);
+
+      if (!conversation) {
+        reply({
+          success: false,
+          message: "Conversation not found",
+        });
+        return;
+      }
+
+      if (!isParticipant(conversation, userId)) {
+        reply({
+          success: false,
+          message: "You are not part of this conversation",
+        });
+        return;
+      }
+
+      const message = await Message.create({
+        conversation: conversationId,
+        sender: socket.user._id,
+        text: text.trim(),
+        status: "sent",
+      });
+
+      conversation.lastMessage = message._id;
+      conversation.lastMessageAt = message.createdAt;
+      await conversation.save();
+
+      const populatedMessage = await Message.findById(message._id)
+        .populate("sender", "-password")
+        .populate({
+          path: "conversation",
+          populate: { path: "participants", select: "-password" },
+        });
+
+      const clientMessage = toClientMessage(populatedMessage);
+
+      const targetRooms = conversation.participants.map((participant) =>
+        userRoomOf(participant.toString())
+      );
+
+      console.log(
+        "[chat] delivering message to:",
+        targetRooms.map(
+          (room) =>
+            `${room} (${io.sockets.adapter.rooms.get(room)?.size ?? 0} sockets)`
+        )
+      );
+
+      // Notify all participants, including the sender.
+      io.to(targetRooms).emit("message:receive", clientMessage);
+
+      // Confirm to the sender that the server saved the message.
+      reply({
+        success: true,
+        message: clientMessage,
+      });
+    } catch (error) {
+      console.error("Socket message error:", error);
+
+      reply({
+        success: false,
+        message: "Failed to send message",
+      });
+
+      socket.emit("message:error", {
+        message: "Failed to send message",
+      });
+    }
+  }
+);
+
+
+    socket.on("message:delivered", async ({ messageId } = {}) => {
+  try {
+    if (!messageId) return;
+
+    const message = await Message.findById(messageId);
+
+    if (!message) return;
+
+    const conversation = await Conversation.findById(
+      message.conversation
+    );
+
+    if (!conversation) return;
+
+    const isParticipant = conversation.participants.some(
+      (id) => String(id) === String(socket.user._id)
+    );
+
+    // The sender cannot acknowledge their own message as delivered.
+    if (
+      !isParticipant ||
+      String(message.sender) === String(socket.user._id)
+    ) {
+      return;
+    }
+
+    // Never downgrade a message that has already been read.
+    await Message.updateOne(
+      { _id: message._id, status: "sent" },
+      {
+        $set: {
+          status: "delivered",
+          deliveredAt: new Date(),
+        },
+      }
+    );
+
+    const currentMessage = await Message.findById(message._id);
+
+    if (!currentMessage) return;
+
+    io.to(`user:${currentMessage.sender}`).emit("message:status", {
+      messageId: String(currentMessage._id),
+      conversationId: String(currentMessage.conversation),
+      status: currentMessage.status,
+      deliveredAt: currentMessage.deliveredAt,
+      readAt: currentMessage.readAt,
+    });
+  } catch (error) {
+    console.error("Message delivery acknowledgement error:", error);
+  }
+});
+
+
+    // --------------------------------
+    // Mark incoming messages as read
+    // --------------------------------
+
+    socket.on("message:read", async ({ conversationId } = {}) => {
       try {
-        if (!conversationId || typeof text !== "string" || !text.trim()) {
-          return;
-        }
+        if (!conversationId) return;
 
         const conversation = await Conversation.findById(conversationId);
 
-        if (!conversation) {
-          socket.emit("message:error", { message: "Conversation not found" });
+        if (!conversation || !isParticipant(conversation, userId)) {
           return;
         }
 
-        if (!isParticipant(conversation, userId)) {
-          socket.emit("message:error", {
-            message: "You are not part of this conversation",
+        // Only mark messages from other users as read.
+        const unreadMessages = await Message.find({
+          conversation: conversation._id,
+          sender: { $ne: socket.user._id },
+          status: { $ne: "read" },
+        }).select("_id");
+
+        if (unreadMessages.length === 0) return;
+
+        const messageIds = unreadMessages.map((message) => message._id);
+        const readAt = new Date();
+
+        await Message.updateMany(
+          {
+            _id: { $in: messageIds },
+            status: { $ne: "read" },
+          },
+          {
+            $set: {
+              status: "read",
+              deliveredAt: readAt,
+              readAt,
+            },
+          }
+        );
+
+        // Notify the original senders so their ticks update immediately.
+        const updatedMessages = await Message.find({
+          _id: { $in: messageIds },
+        }).select("_id sender conversation status deliveredAt readAt");
+
+        for (const message of updatedMessages) {
+          io.to(userRoomOf(String(message.sender))).emit("message:status", {
+            messageId: String(message._id),
+            conversationId: String(message.conversation),
+            status: message.status,
+            deliveredAt: message.deliveredAt,
+            readAt: message.readAt,
           });
-          return;
         }
-
-        const message = await Message.create({
-          conversation: conversationId,
-          sender: socket.user._id,
-          text: text.trim(),
-          status: "sent",
-        });
-
-        conversation.lastMessage = message._id;
-        conversation.lastMessageAt = message.createdAt;
-        await conversation.save();
-
-        const populatedMessage = await Message.findById(message._id)
-          .populate("sender", "-password")
-          .populate({
-            path: "conversation",
-            populate: { path: "participants", select: "-password" },
-          });
-
-        // Deliver to every participant's PERSONAL room. io.to([a, b]) sends
-        // each socket the event once, even if it matches both rooms.
-        // This is what fixes "recipient sees nothing until they search":
-        // before, the event went to the conversation room, which the
-        // recipient only joins after opening that conversation.
-        const targetRooms = conversation.participants.map((p) =>
-          userRoomOf(p.toString())
-        );
-
-        // Diagnostic: prints each target room and how many sockets are in
-        // it. A 0 means that user has no live socket (not logged in / not
-        // connected). If you do not see this "[chat]" line in your terminal,
-        // the OLD socketHandler.js is still running.
-        console.log(
-          "[chat] delivering message to:",
-          targetRooms.map((r) => `${r} (${io.sockets.adapter.rooms.get(r)?.size ?? 0} sockets)`)
-        );
-
-        io.to(targetRooms).emit(
-          "message:receive",
-          toClientMessage(populatedMessage)
-        );
       } catch (error) {
-        console.error("Socket message error:", error);
-        socket.emit("message:error", { message: "Failed to send message" });
+        console.error("Message read acknowledgement error:", error);
       }
     });
 

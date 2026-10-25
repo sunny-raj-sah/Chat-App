@@ -225,7 +225,7 @@ const Message = ({ message, currentUser, onDelete }) => {
           </span>
 
           {/* Message Status */}
-          {isOwn && (
+          {/* {isOwn && (
             <span
               className="fw-semibold text-nowrap"
               title={
@@ -240,8 +240,33 @@ const Message = ({ message, currentUser, onDelete }) => {
               {message.status === "delivered" && "✓✓"}
               {message.status === "sent" && "✓"}
             </span>
-          )}
+          )} */}
 
+{isOwn && (
+  <span
+    className={`fw-semibold text-nowrap ${
+      message.status === "read" ? "text-info" : "text-white-50"
+    }`}
+    title={
+      message.status === "read"
+        ? "Read"
+        : message.status === "delivered"
+          ? "Delivered"
+          : "Sent"
+    }
+    aria-label={
+      message.status === "read"
+        ? "Read"
+        : message.status === "delivered"
+          ? "Delivered"
+          : "Sent"
+    }
+  >
+    {message.status === "read" && "✓✓"}
+    {message.status === "delivered" && "✓✓"}
+    {(!message.status || message.status === "sent") && "✓"}
+  </span>
+)}
           {/* Delete */}
           {isOwn && (
             <button

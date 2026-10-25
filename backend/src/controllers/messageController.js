@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const User = require("../models/User");
@@ -67,6 +68,13 @@ const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
 
+     // 1. Validate conversation ID
+    if (!mongoose.isValidObjectId(conversationId)) {
+      return res.status(400).json({
+        message: "Invalid conversation ID",
+      });
+    }
+        // 2. Validate pagination parameters
     const page = Math.max(
       parseInt(req.query.page) || 1,
       1
@@ -79,6 +87,7 @@ const sendMessage = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
+        // 3. Check conversation existences
     const conversation = await Conversation.findById(
       conversationId
     );
@@ -89,6 +98,7 @@ const sendMessage = async (req, res) => {
       });
     }
 
+       // 4. Check conversation membership
     const isParticipant = conversation.participants.some(
       (participantId) =>
         participantId.toString() === req.user._id.toString()
@@ -112,6 +122,8 @@ const sendMessage = async (req, res) => {
       conversation: conversationId,
     });
 
+      // 6. Return messages in chronological order
+      
     res.status(200).json({
       messages: messages.reverse(),
       pagination: {

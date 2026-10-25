@@ -459,6 +459,24 @@ const getPreviewText = (conversation) => {
   return lastMessageAt ? "New message" : "";
 };
 
+
+
+const getId = (value) => {
+  if (value == null) return null;
+
+  if (typeof value === "object") {
+    return value._id != null ? String(value._id) : null;
+  }
+
+  return String(value);
+};
+
+const getMessageStatus = (message) => {
+  if (!message || typeof message !== "object") return null;
+  return message.status || null;
+};
+
+
 const ConversationItem = ({ conversation, currentUser, active, onClick }) => {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimerRef = useRef(null);
@@ -522,6 +540,26 @@ const ConversationItem = ({ conversation, currentUser, active, onClick }) => {
 
   const previewText = getPreviewText(conversation);
 
+
+  
+const lastMessage = conversation.lastMessage;
+
+const isOwnLastMessage =
+  lastMessage &&
+  typeof lastMessage === "object" &&
+  getId(lastMessage.sender) === getId(currentUser?._id);
+
+const lastMessageStatus = getMessageStatus(lastMessage);
+
+const statusIcon =
+  lastMessageStatus === "read"
+    ? "✓✓"
+    : lastMessageStatus === "delivered"
+      ? "✓✓"
+      : lastMessageStatus === "sent"
+        ? "✓"
+        : null;
+
   return (
     <button
       type="button"
@@ -573,7 +611,7 @@ const ConversationItem = ({ conversation, currentUser, active, onClick }) => {
         {/* Preview + unread badge */}
         <div className="d-flex align-items-center justify-content-between gap-2 mt-1">
           <div className="flex-grow-1 overflow-hidden" style={{ minWidth: 0 }}>
-            {isTyping ? (
+            {/* {isTyping ? (
               <span className="cw-typing-label small">
                 typing
                 <span className="cw-typing-dots">
@@ -590,7 +628,42 @@ const ConversationItem = ({ conversation, currentUser, active, onClick }) => {
               >
                 {previewText || "No messages yet"}
               </small>
-            )}
+            )} */}
+
+            
+{isTyping ? (
+  <span className="cw-typing-label small">
+    typing
+    <span className="cw-typing-dots">
+      <span />
+      <span />
+      <span />
+    </span>
+  </span>
+) : (
+  <div
+    className={`d-flex align-items-center gap-1 overflow-hidden small ${
+      hasUnread ? "fw-semibold text-dark" : "text-muted"
+    }`}
+  >
+    {isOwnLastMessage && statusIcon && (
+      <span
+        className={`flex-shrink-0 ${
+          lastMessageStatus === "read" ? "text-info" : "text-muted"
+        }`}
+        aria-label={`Message ${lastMessageStatus}`}
+        title={`Message ${lastMessageStatus}`}
+      >
+        {statusIcon}
+      </span>
+    )}
+
+    <span className="text-truncate">
+      {previewText || "No messages yet"}
+    </span>
+  </div>
+)}
+
           </div>
 
           {hasUnread && (

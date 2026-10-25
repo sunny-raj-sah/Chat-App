@@ -1851,7 +1851,20 @@ const requireSocket = () => {
 
 const requestPresence = () => {
   requireSocket()?.emit("presence:request");
+  
 };
+const getId = (value) => {
+  if (value == null) return null;
+
+  if (typeof value === "object") {
+    return value._id != null ? String(value._id) : null;
+  }
+
+  return String(value);
+};
+
+const getConversationId = (message) =>
+  getId(message?.conversation);
 
 // Applies patchParticipant to every participant of a conversation.
 // Returns the SAME object when nothing changed, so React does not
@@ -1892,6 +1905,8 @@ export const ChatProvider = ({ children }) => {
   const userIdRef = useRef(null);
   const conversationsRef = useRef([]);
   const searchRequestRef = useRef(0); // id of the most recent user search
+const messageFetchRequestRef = useRef(0);
+
 
   useEffect(() => {
     activeConversationRef.current = activeConversation;
@@ -1928,25 +1943,58 @@ export const ChatProvider = ({ children }) => {
 
       // ---- incoming message ----
       const handleIncomingMessage = (message) => {
-        const conversationId =
-          message.conversation?._id || message.conversation?.toString();
+        // const conversationId =
+        //   message.conversation?._id || message.conversation?.toString();
 
-        if (!conversationId) {
-          return;
-        }
+        // if (!conversationId) {
+        //   return;
+        // }
 
-        const isActiveConversation =
-          activeConversationRef.current?._id === conversationId;
+        // const isActiveConversation =
+        //   activeConversationRef.current?._id === conversationId;
 
-        const senderId = message.sender?._id || message.sender;
-        const isOwnMessage = senderId === userIdRef.current;
+        // const senderId = message.sender?._id || message.sender;
+        // const isOwnMessage = senderId === userIdRef.current;
 
-        // Is this conversation already in the sidebar, and did the server
-        // send enough data (populated participants) to build a sidebar row?
-        const isKnownConversation = conversationsRef.current.some(
-          (conversation) => conversation._id === conversationId
-        );
+        // // Is this conversation already in the sidebar, and did the server
+        // // send enough data (populated participants) to build a sidebar row?
+        // const isKnownConversation = conversationsRef.current.some(
+        //   (conversation) => conversation._id === conversationId
+        // );
 
+        const conversationId = getConversationId(message);
+
+if (!conversationId) {
+  return;
+}
+
+const isActiveConversation =
+  getId(activeConversationRef.current?._id) === conversationId;
+
+const senderId = getId(message.sender);
+const isOwnMessage =
+  senderId != null &&
+  senderId === getId(userIdRef.current);
+
+const isKnownConversation = conversationsRef.current.some(
+  (conversation) => getId(conversation._id) === conversationId
+);
+
+
+// Only the recipient acknowledges delivery.
+if (!isOwnMessage && message._id) {
+  socket.emit("message:delivered", {
+    messageId: message._id,
+  });
+
+  // If the recipient is already viewing this conversation,
+  // acknowledge that the message has been read.
+  if (isActiveConversation) {
+    socket.emit("message:read", {
+      conversationId,
+    });
+  }
+}
         const hasUsableConversation =
           typeof message.conversation === "object" &&
           Array.isArray(message.conversation.participants) &&
@@ -1973,11 +2021,19 @@ export const ChatProvider = ({ children }) => {
         // 1) Only append to the open thread when the message BELONGS to it.
         //    (Before, every message from every chat was appended here.)
         if (isActiveConversation) {
+          // setMessages((previous) =>
+          //   previous.some((item) => item._id === message._id)
+          //     ? previous
+          //     : [...previous, message]
+          // );
+
           setMessages((previous) =>
-            previous.some((item) => item._id === message._id)
-              ? previous
-              : [...previous, message]
-          );
+  previous.some(
+    (item) => String(item._id) === String(message._id)
+  )
+    ? previous
+    : [...previous, message]
+);
         }
 
         // 2) Sidebar: preview, ordering, unread badge.
@@ -1986,10 +2042,12 @@ export const ChatProvider = ({ children }) => {
         const lastMessage = { ...message, conversation: conversationId };
 
         setConversations((previous) => {
-          const existing = previous.find(
-            (conversation) => conversation._id === conversationId
-          );
-
+          // const existing = previous.find(
+          //   (conversation) => conversation._id === conversationId
+          // );
+const existing = previous.find(
+  (conversation) => String(conversation._id) === String(conversationId)
+);
           if (existing) {
             // Same message delivered twice (two event names, or a
             // reconnect)? Do not count it twice.
@@ -2103,14 +2161,85 @@ export const ChatProvider = ({ children }) => {
         );
       };
 
-      // ---- presence ----
-      const handleUserStatus = ({ userId, isOnline, lastSeen }) => {
-        patchEverywhere((participant) =>
-          participant._id === userId
-            ? { ...participant, isOnline, lastSeen }
-            : participant
-        );
+
+      const handleMessageStatus = ({
+  messageId,
+  conversationId,
+  status,
+  deliveredAt,
+  readAt,
+}) => {
+  const targetMessageId = String(messageId);
+  const targetConversationId = String(conversationId);
+
+  const updateStatus = (message) => {
+    if (String(message._id) !== targetMessageId) {
+      return message;
+    }
+
+    return {
+      ...message,
+      status,
+      deliveredAt: deliveredAt ?? message.deliveredAt,
+      readAt: readAt ?? message.readAt,
+    };
+  };
+
+  setMessages((previous) => previous.map(updateStatus));
+
+  setConversations((previous) =>
+    previous.map((conversation) => {
+      if (String(conversation._id) !== targetConversationId) {
+        return conversation;
+      }
+
+      if (
+        !conversation.lastMessage ||
+        String(conversation.lastMessage._id) !== targetMessageId
+      ) {
+        return conversation;
+      }
+
+      return {
+        ...conversation,
+        lastMessage: updateStatus(conversation.lastMessage),
       };
+    })
+  );
+};
+
+      // ---- presence ----
+      
+const handleUserStatus = ({ userId, isOnline, lastSeen }) => {
+  if (userId == null) return;
+
+  console.log("[presence] status event received:", {
+    userId,
+    isOnline,
+  });
+
+  const targetUserId = String(userId);
+
+  patchEverywhere((participant) => {
+    const participantId = String(participant._id);
+
+    if (participantId !== targetUserId) {
+      return participant;
+    }
+
+    console.log("[presence] updating participant:", {
+      participantId,
+      isOnline,
+    });
+
+    return {
+      ...participant,
+      isOnline,
+      lastSeen,
+    };
+  });
+};
+
 
       // Full picture sent by the server: anyone not in the list is offline.
       const handlePresenceSnapshot = ({ onlineUserIds }) => {
@@ -2135,6 +2264,7 @@ export const ChatProvider = ({ children }) => {
       socket.on("user:online", handleUserStatus);
       socket.on("user:offline", handleUserStatus);
       socket.on("presence:snapshot", handlePresenceSnapshot);
+     socket.on("message:status", handleMessageStatus);
 
       // Ask for the snapshot only AFTER the listener above exists, and again
       // on every reconnect. (Anything the server pushes during the handshake
@@ -2154,6 +2284,7 @@ export const ChatProvider = ({ children }) => {
         socket.off("user:offline", handleUserStatus);
         socket.off("presence:snapshot", handlePresenceSnapshot);
         socket.off("connect", requestPresence);
+        socket.off("message:status", handleMessageStatus);
       };
     };
 
@@ -2257,24 +2388,51 @@ export const ChatProvider = ({ children }) => {
     try {
       setLoadingConversations(true);
       const response = await api.get("/conversations");
-      setConversations((previous) =>
-        response.data.conversations.map((conversation) => {
-          const before = previous.find((item) => item._id === conversation._id);
+      // setConversations((previous) =>
+      //   response.data.conversations.map((conversation) => {
+      //     const before = previous.find((item) => item._id === conversation._id);
 
-          const hasPopulatedLastMessage =
-            conversation.lastMessage &&
-            typeof conversation.lastMessage === "object";
+      //     const hasPopulatedLastMessage =
+      //       conversation.lastMessage &&
+      //       typeof conversation.lastMessage === "object";
 
-          return {
-            ...conversation,
-            lastMessage: hasPopulatedLastMessage
-              ? conversation.lastMessage
-              : before?.lastMessage ?? conversation.lastMessage,
-            unreadCount: before?.unreadCount || 0,
-            unreadMessageIds: before?.unreadMessageIds || [],
-          };
-        })
-      );
+      //     return {
+      //       ...conversation,
+      //       lastMessage: hasPopulatedLastMessage
+      //         ? conversation.lastMessage
+      //         : before?.lastMessage ?? conversation.lastMessage,
+      //       unreadCount: before?.unreadCount || 0,
+      //       unreadMessageIds: before?.unreadMessageIds || [],
+      //     };
+      //   })
+      // );
+      
+setConversations((previous) =>
+  response.data.conversations.map((conversation) => {
+    const before = previous.find(
+      (item) => String(item._id) === String(conversation._id)
+    );
+
+    const hasPopulatedLastMessage =
+      conversation.lastMessage &&
+      typeof conversation.lastMessage === "object";
+
+    return {
+      ...conversation,
+      lastMessage: hasPopulatedLastMessage
+        ? conversation.lastMessage
+        : before?.lastMessage ?? conversation.lastMessage,
+
+      // Prefer the backend count if the API supplies one.
+      unreadCount:
+        conversation.unreadCount ?? before?.unreadCount ?? 0,
+
+      unreadMessageIds:
+        before?.unreadMessageIds || [],
+    };
+  })
+);
+
       requestPresence();
     } catch (error) {
       console.error("Failed to fetch conversations:", error);
@@ -2287,20 +2445,112 @@ export const ChatProvider = ({ children }) => {
   // REST: messages
   // --------------------------------
 
-  const fetchMessages = async (conversationId) => {
-    try {
-      setLoadingMessages(true);
-      const response = await api.get(
-        `/messages/${conversationId}?page=1&limit=30`
+  // const fetchMessages = async (conversationId) => {
+  //   try {
+  //     setLoadingMessages(true);
+  //     const response = await api.get(
+  //       `/messages/${conversationId}?page=1&limit=30`
+  //     );
+  //     setMessages(response.data.messages);
+  //   } catch (error) {
+  //     console.error("Failed to fetch messages:", error);
+  //     setMessages([]);
+  //   } finally {
+  //     setLoadingMessages(false);
+  //   }
+  // };
+  //main and working one
+// const fetchMessages = async (conversationId) => {
+//   const requestId = ++messageFetchRequestRef.current;
+
+//   try {
+//     setLoadingMessages(true);
+
+//     const response = await api.get(
+//       `/messages/${conversationId}?page=1&limit=30`
+//     );
+
+//     if (requestId !== messageFetchRequestRef.current) {
+//       return;
+//     }
+
+//     setMessages(response.data.messages);
+//   } catch (error) {
+//     if (requestId !== messageFetchRequestRef.current) {
+//       return;
+//     }
+
+//     console.error("Failed to fetch messages:", error);
+//     setMessages([]);
+//   } finally {
+//     if (requestId === messageFetchRequestRef.current) {
+//       setLoadingMessages(false);
+//     }
+//   }
+// };
+
+
+const fetchMessages = async (conversationId) => {
+  const requestId = ++messageFetchRequestRef.current;
+  const requestedConversationId = String(conversationId);
+
+  try {
+    setLoadingMessages(true);
+
+    const response = await api.get(
+      `/messages/${conversationId}?page=1&limit=30`
+    );
+
+    // Ignore responses from an older request.
+    if (requestId !== messageFetchRequestRef.current) {
+      return;
+    }
+
+    // Do not apply messages if the user has switched conversations.
+    if (
+      String(activeConversationRef.current?._id) !==
+      requestedConversationId
+    ) {
+      return;
+    }
+
+    const serverMessages = response.data.messages || [];
+
+    setMessages((previous) => {
+      const merged = [...serverMessages];
+      const knownIds = new Set(
+        merged.map((message) => String(message._id))
       );
-      setMessages(response.data.messages);
-    } catch (error) {
-      console.error("Failed to fetch messages:", error);
-      setMessages([]);
-    } finally {
+
+      // Preserve messages received through Socket.IO while the API
+      // request was in progress.
+      for (const message of previous) {
+        const messageConversationId = getConversationId(message);
+
+        if (
+          messageConversationId === requestedConversationId &&
+          !knownIds.has(String(message._id))
+        ) {
+          merged.push(message);
+          knownIds.add(String(message._id));
+        }
+      }
+
+      return merged;
+    });
+  } catch (error) {
+    if (requestId !== messageFetchRequestRef.current) {
+      return;
+    }
+
+    console.error("Failed to fetch messages:", error);
+    setMessages([]);
+  } finally {
+    if (requestId === messageFetchRequestRef.current) {
       setLoadingMessages(false);
     }
-  };
+  }
+};
 
   // --------------------------------
   // Create / open a conversation
@@ -2361,24 +2611,44 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // const selectConversation = async (conversation) => {
+  //   activeConversationRef.current = conversation;
+  //   setActiveConversation(conversation);
+
+  //   // Don't flash the previous thread while the new one loads.
+  //   setMessages([]);
+
+  //   setConversations((previous) =>
+  //     previous.map((item) =>
+  //       item._id === conversation._id
+  //         ? { ...item, unreadCount: 0, unreadMessageIds: [] }
+  //         : item
+  //     )
+  //   );
+
+  //   await fetchMessages(conversation._id);
+  // };
+
   const selectConversation = async (conversation) => {
-    activeConversationRef.current = conversation;
-    setActiveConversation(conversation);
+  activeConversationRef.current = conversation;
+  setActiveConversation(conversation);
+  setMessages([]);
 
-    // Don't flash the previous thread while the new one loads.
-    setMessages([]);
+  setConversations((previous) =>
+    previous.map((item) =>
+      String(item._id) === String(conversation._id)
+        ? { ...item, unreadCount: 0, unreadMessageIds: [] }
+        : item
+    )
+  );
 
-    setConversations((previous) =>
-      previous.map((item) =>
-        item._id === conversation._id
-          ? { ...item, unreadCount: 0, unreadMessageIds: [] }
-          : item
-      )
-    );
+  await fetchMessages(conversation._id);
 
-    await fetchMessages(conversation._id);
-  };
-
+  // Ask the backend to mark incoming messages as read.
+  requireSocket()?.emit("message:read", {
+    conversationId: conversation._id,
+  });
+};
   // --------------------------------
   // Initial data / reset on logout
   // --------------------------------
@@ -2414,17 +2684,122 @@ export const ChatProvider = ({ children }) => {
     requireSocket()?.emit("typing:stop", { conversationId });
   };
 
-  const sendMessage = (conversationId, text) => {
-    const socket = requireSocket();
+ 
 
-    if (!socket) {
-      throw new Error("Socket is not connected");
-    }
+//   const sendMessage = (conversationId, text) => {
+//   const socket = requireSocket();
 
-    socket.emit("message:send", { conversationId, text });
-  };
+//   if (!socket) {
+//     return Promise.reject(new Error("Socket is not connected"));
+//   }
 
-  const deleteMessage = (messageId) => {
+//   return new Promise((resolve, reject) => {
+//     socket.timeout(10000).emit(
+//       "message:send",
+//       { conversationId, text },
+//       (timeoutError, response) => {
+//         if (timeoutError) {
+//           reject(new Error("The server did not confirm the message"));
+//           return;
+//         }
+
+//         if (!response?.success) {
+//           reject(
+//             new Error(response?.message || "Failed to send message")
+//           );
+//           return;
+//         }
+
+//         resolve(response.message);
+//       }
+//     );
+//   });
+// };
+
+const sendMessage = (conversationId, text) => {
+  const socket = requireSocket();
+
+  if (!socket) {
+    return Promise.reject(new Error("Socket is not connected"));
+  }
+
+  return new Promise((resolve, reject) => {
+    socket.timeout(10000).emit(
+      "message:send",
+      { conversationId, text },
+      (timeoutError, response) => {
+        if (timeoutError) {
+          reject(new Error("The server did not confirm the message"));
+          return;
+        }
+
+        if (!response?.success || !response.message) {
+          reject(
+            new Error(response?.message || "Failed to send message")
+          );
+          return;
+        }
+
+        const message = response.message;
+        const messageConversationId = getConversationId(message);
+
+        // Update the visible thread immediately.
+        if (
+          getId(activeConversationRef.current?._id) ===
+          String(conversationId)
+        ) {
+          setMessages((previous) =>
+            previous.some(
+              (item) => String(item._id) === String(message._id)
+            )
+              ? previous
+              : [...previous, message]
+          );
+        }
+
+        // Update the sidebar preview without creating a duplicate.
+        setConversations((previous) => {
+          const index = previous.findIndex(
+            (item) => String(item._id) === String(conversationId)
+          );
+
+          if (index === -1) {
+            return previous;
+          }
+
+          const existing = previous[index];
+
+          if (
+            String(existing.lastMessage?._id) === String(message._id)
+          ) {
+            return previous;
+          }
+
+          const updated = {
+            ...existing,
+            lastMessage: {
+              ...message,
+              conversation: messageConversationId,
+            },
+            lastMessageAt: message.createdAt,
+          };
+
+          return [
+            updated,
+            ...previous.filter(
+              (item) => String(item._id) !== String(conversationId)
+            ),
+          ];
+        });
+
+        resolve(message);
+      }
+    );
+  });
+};
+  
+
+const deleteMessage = (messageId) => {
     const socket = requireSocket();
 
     if (!socket) {

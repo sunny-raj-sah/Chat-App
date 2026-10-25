@@ -72,17 +72,24 @@ const Chat = () => {
     setMobileView("list");
   };
 
-  const handleSendMessage = async (text) => {
-    if (!activeConversation) {
-      return;
-    }
+  // const handleSendMessage = async (text) => {
+  //   if (!activeConversation) {
+  //     return;
+  //   }
 
-    try {
-      sendMessage(activeConversation._id, text);
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    }
-  };
+  //   try {
+  //      await  sendMessage(activeConversation._id, text);
+  //   } catch (error) {
+  //     console.error("Failed to send message:", error);
+  //   }
+  // };
+  const handleSendMessage = async (text) => {
+  if (!activeConversation) {
+    throw new Error("No active conversation selected");
+  }
+
+  await sendMessage(activeConversation._id, text);
+};
 
   console.log("CHAT PAGE user from useAuth():", user);
 

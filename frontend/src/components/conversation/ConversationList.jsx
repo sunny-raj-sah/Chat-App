@@ -79,7 +79,10 @@ const ConversationList = ({
           key={conversation._id}
           conversation={conversation}
           currentUser={currentUser}
-          active={activeConversation?._id === conversation._id}
+          // active={activeConversation?._id === conversation._id}
+          active={
+  String(activeConversation?._id) === String(conversation._id)
+}
           onClick={() => onSelect(conversation)}
         />
       ))}

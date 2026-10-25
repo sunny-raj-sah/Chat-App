@@ -89,5 +89,9 @@ export const disconnectSocket = () => {
     socket = null;
   }
 
-  socketReadyListeners.clear();
+    // Do not clear socketReadyListeners here.
+  // ChatContext remains mounted across logout/login and needs
+  // its subscriptions to attach to the next socket connection.
+  
+  // socketReadyListeners.clear();
 };
