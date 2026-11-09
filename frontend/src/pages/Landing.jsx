@@ -244,7 +244,7 @@ const Landing = () => {
           <div className="row align-items-center g-5">
             <div className="col-lg-6">
               <span className="lp-pill mb-3">
-                <i className="bi bi-stars" /> Full-stack portfolio project
+                <i className="bi bi-stars" /> Full-stack project
               </span>
               <h1 className="cw-display lp-title">
                 Conversations that arrive{" "}
